@@ -40,41 +40,41 @@ TURKEY_TZ = ZoneInfo("Europe/Istanbul")
 # Öncelik: 10=en yüksek (resmi lab blogları), 6=genel tech haberleri
 RSS_SOURCES = [
     # Resmi AI Lab Blogları (öncelik 10)
-    {"name": "OpenAI Blog",         "url": "https://openai.com/news/rss.xml",                                                        "priority": 10},
-    {"name": "Anthropic Blog",      "url": "https://www.anthropic.com/rss.xml",                                                      "priority": 10},
-    {"name": "Google DeepMind",     "url": "https://deepmind.google/blog/rss",                                                       "priority": 10},
-    {"name": "Google AI Blog",      "url": "https://blog.google/technology/ai/rss/",                                                  "priority": 10},
-    {"name": "Meta AI Blog",        "url": "https://ai.meta.com/blog/rss/",                                                          "priority": 10},
-    {"name": "Hugging Face Blog",   "url": "https://huggingface.co/blog/feed.xml",                                                   "priority": 10},
-    {"name": "Mistral AI Blog",     "url": "https://mistral.ai/news/rss",                                                            "priority": 9},
-    {"name": "xAI Blog",            "url": "https://x.ai/blog/rss.xml",                                                              "priority": 9},
-    {"name": "Microsoft AI Blog",   "url": "https://blogs.microsoft.com/ai/feed/",                                                   "priority": 9},
-    {"name": "NVIDIA AI Blog",      "url": "https://blogs.nvidia.com/blog/category/deep-learning/feed/",                             "priority": 9},
-
-    # Araştırma & Teknik (öncelik 9-8)
-    {"name": "ArXiv CS.AI",         "url": "https://rss.arxiv.org/rss/cs.AI",                                                       "priority": 9},
-    {"name": "ArXiv CS.LG",         "url": "https://rss.arxiv.org/rss/cs.LG",                                                       "priority": 8},
-    {"name": "ArXiv CS.CL",         "url": "https://rss.arxiv.org/rss/cs.CL",                                                       "priority": 8},
-    {"name": "MarkTechPost",        "url": "https://www.marktechpost.com/feed/",                                                     "priority": 8},
-    {"name": "The Gradient",        "url": "https://thegradient.pub/rss/",                                                           "priority": 8},
-    {"name": "AI Alignment Forum",  "url": "https://www.alignmentforum.org/feed.xml",                                                "priority": 7},
+    {"name": "OpenAI Blog",         "url": "https://openai.com/news/rss.xml",                                                                    "priority": 10},
+    {"name": "Anthropic Blog",      "url": "https://www.anthropic.com/news/rss",                                                                 "priority": 10},
+    {"name": "Google DeepMind",     "url": "https://deepmind.google/discover/blog/rss.xml",                                                      "priority": 10},
+    {"name": "Google AI Blog",      "url": "https://blog.google/technology/ai/rss/",                                                             "priority": 10},
+    {"name": "Meta AI Blog",        "url": "https://engineering.fb.com/category/ai-research/feed/",                                              "priority": 10},
+    {"name": "Hugging Face Blog",   "url": "https://huggingface.co/blog/feed.xml",                                                               "priority": 10},
+    {"name": "Mistral AI Blog",     "url": "https://mistral.ai/fr/news/rss",                                                                     "priority": 9},
+    {"name": "xAI Blog",            "url": "https://x.ai/news/rss.xml",                                                                          "priority": 9},
+    {"name": "Microsoft AI Blog",   "url": "https://blogs.microsoft.com/ai/feed/",                                                               "priority": 9},
+    {"name": "NVIDIA AI Blog",      "url": "https://blogs.nvidia.com/blog/category/deep-learning/feed/",                                         "priority": 9},
 
     # Haber & Analiz (öncelik 8-7)
-    {"name": "TechCrunch AI",       "url": "https://techcrunch.com/category/artificial-intelligence/feed/",                         "priority": 8},
-    {"name": "The Verge AI",        "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",                     "priority": 8},
-    {"name": "VentureBeat AI",      "url": "https://venturebeat.com/category/ai/feed/",                                             "priority": 8},
-    {"name": "MIT Tech Review AI",  "url": "https://www.technologyreview.com/feed/",                                                 "priority": 8},
-    {"name": "Wired AI",            "url": "https://www.wired.com/feed/tag/ai/latest/rss",                                          "priority": 7},
-    {"name": "Ars Technica AI",     "url": "https://feeds.arstechnica.com/arstechnica/index",                                        "priority": 7},
+    {"name": "TechCrunch AI",       "url": "https://techcrunch.com/category/artificial-intelligence/feed/",                                      "priority": 8},
+    {"name": "The Verge AI",        "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",                                  "priority": 8},
+    {"name": "VentureBeat AI",      "url": "https://venturebeat.com/category/ai/feed/",                                                          "priority": 8},
+    {"name": "MIT Tech Review AI",  "url": "https://www.technologyreview.com/feed/",                                                             "priority": 8},
+    {"name": "Wired AI",            "url": "https://www.wired.com/feed/tag/ai/latest/rss",                                                       "priority": 7},
+    {"name": "Ars Technica AI",     "url": "https://feeds.arstechnica.com/arstechnica/index",                                                    "priority": 7},
+    {"name": "MarkTechPost",        "url": "https://www.marktechpost.com/feed/",                                                                 "priority": 7},
+    {"name": "The Gradient",        "url": "https://thegradient.pub/rss/",                                                                       "priority": 7},
 
-    # Topluluk & Reddit (öncelik 6)
-    {"name": "Reddit r/MachineLearning", "url": "https://www.reddit.com/r/MachineLearning/.rss?sort=top&t=day",                    "priority": 6},
-    {"name": "Reddit r/LocalLLaMA",      "url": "https://www.reddit.com/r/LocalLLaMA/.rss?sort=top&t=day",                         "priority": 6},
-    {"name": "Hacker News AI",           "url": "https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+machine+learning&points=50",       "priority": 6},
+    # Araştırma / Teknik — SINIRLI (öncelik 6, en fazla 15 makale alınır)
+    {"name": "ArXiv CS.AI",         "url": "https://rss.arxiv.org/rss/cs.AI",                                                                   "priority": 6, "max_items": 15},
+    {"name": "ArXiv CS.LG",         "url": "https://rss.arxiv.org/rss/cs.LG",                                                                   "priority": 6, "max_items": 10},
+    {"name": "ArXiv CS.CL",         "url": "https://rss.arxiv.org/rss/cs.CL",                                                                   "priority": 6, "max_items": 10},
+    {"name": "AI Alignment Forum",  "url": "https://www.alignmentforum.org/feed.xml",                                                            "priority": 7},
 
-    # Google News özel sorgular (öncelik 7)
-    {"name": "GNews: Model Releases",   "url": "https://news.google.com/rss/search?q=AI+model+release+OR+LLM+launch+2026&hl=en-US&gl=US&ceid=US:en", "priority": 7},
-    {"name": "GNews: AI Research",      "url": "https://news.google.com/rss/search?q=AI+research+breakthrough+OpenAI+Anthropic+DeepMind&hl=en-US&gl=US&ceid=US:en", "priority": 7},
+    # Topluluk (öncelik 6)
+    {"name": "Reddit r/MachineLearning", "url": "https://www.reddit.com/r/MachineLearning/.rss?sort=top&t=day",                                 "priority": 6},
+    {"name": "Reddit r/LocalLLaMA",      "url": "https://www.reddit.com/r/LocalLLaMA/.rss?sort=top&t=day",                                      "priority": 6},
+    {"name": "Hacker News AI",           "url": "https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+machine+learning&points=50",                   "priority": 6},
+
+    # Google News (öncelik 7)
+    {"name": "GNews: Model Releases",   "url": "https://news.google.com/rss/search?q=AI+model+release+OR+LLM+launch&hl=en-US&gl=US&ceid=US:en", "priority": 7},
+    {"name": "GNews: AI Research",      "url": "https://news.google.com/rss/search?q=OpenAI+OR+Anthropic+OR+DeepMind+AI+2026&hl=en-US&gl=US&ceid=US:en", "priority": 7},
 ]
 
 # ── Öncelik artıran anahtar kelimeler ────────────────────────────────────────
@@ -324,6 +324,9 @@ def fetch_articles(hours: int = 24) -> list[NewsArticle]:
         xml_text = _fetch_rss_xml(source["url"])
         if xml_text:
             found = _parse_rss(xml_text, source["name"], source["priority"], cutoff)
+            max_items = source.get("max_items")
+            if max_items:
+                found = found[:max_items]
             log.info("  → %d AI haberi bulundu", len(found))
             articles.extend(found)
 
