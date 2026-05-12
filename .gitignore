@@ -4,3 +4,7 @@ __pycache__/
 .env
 digests/
 ai_news_*.txt
+venv/
+dist/
+build_tmp/
+ai_news
