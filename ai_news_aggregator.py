@@ -417,9 +417,13 @@ def _summarize_groq(prompt: str) -> str:
         },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read())
-    return data["choices"][0]["message"]["content"]
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read())
+        return data["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode(errors="replace")
+        raise RuntimeError(f"Groq HTTP {exc.code}: {body[:300]}") from exc
 
 
 def _summarize_gemini(prompt: str) -> str:
@@ -429,32 +433,22 @@ def _summarize_gemini(prompt: str) -> str:
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.3},
     }).encode()
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
 
-    for attempt in range(3):
-        req = urllib.request.Request(
-            url, data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+    for model in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
                 data = json.loads(resp.read())
+            log.info("Gemini modeli kullanıldı: %s", model)
             return data["candidates"][0]["content"]["parts"][0]["text"]
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")
             if exc.code == 429:
-                if attempt < 2:
-                    wait = 20 * (attempt + 1)
-                    log.warning("Gemini rate limit, %ds bekleniyor (deneme %d/3)...", wait, attempt + 1)
-                    time.sleep(wait)
-                else:
-                    raise RuntimeError(
-                        "Gemini günlük kotası dolmuş. Groq API (ücretsiz) kullanmayı deneyin: console.groq.com"
-                    ) from exc
+                log.warning("Gemini %s kota aşıldı, sıradaki model deneniyor...", model)
             else:
                 raise RuntimeError(f"Gemini HTTP {exc.code}: {body[:200]}") from exc
-    raise RuntimeError("Gemini yanıt vermedi.")
+    raise RuntimeError("Tüm Gemini modelleri kota aşımında. Groq API'yi deneyin: console.groq.com")
 
 
 _PROVIDERS = [
