@@ -200,6 +200,13 @@ def _parse_date(date_str: str) -> Optional[datetime]:
     return None
 
 
+def _strip_html(text: str) -> str:
+    """HTML tag'lerini ve entity'leri temizler."""
+    text = re.sub(r"<[^>]+>", "", text)
+    text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&nbsp;", " ").replace("&#39;", "'").replace("&quot;", '"')
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _parse_rss(xml_text: str, source_name: str, source_priority: int, cutoff: datetime) -> list[NewsArticle]:
     articles: list[NewsArticle] = []
     try:
@@ -225,7 +232,8 @@ def _parse_rss(xml_text: str, source_name: str, source_priority: int, cutoff: da
             if link_el is not None:
                 url = link_el.get("href", "")
 
-        summary = txt("description") or txt("summary") or txt("content")
+        summary = _strip_html(txt("description") or txt("summary") or txt("content"))
+        title   = _strip_html(title)
         pub_str = txt("pubDate") or txt("published") or txt("updated")
         pub = _parse_date(pub_str)
 
@@ -436,18 +444,23 @@ def _summarize_gemini(prompt: str) -> str:
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")
             if exc.code == 429:
-                wait = 15 * (attempt + 1)
-                log.warning("Gemini kota aşıldı, %ds bekleniyor (deneme %d/3)...", wait, attempt + 1)
-                time.sleep(wait)
+                if attempt < 2:
+                    wait = 20 * (attempt + 1)
+                    log.warning("Gemini rate limit, %ds bekleniyor (deneme %d/3)...", wait, attempt + 1)
+                    time.sleep(wait)
+                else:
+                    raise RuntimeError(
+                        "Gemini günlük kotası dolmuş. Groq API (ücretsiz) kullanmayı deneyin: console.groq.com"
+                    ) from exc
             else:
                 raise RuntimeError(f"Gemini HTTP {exc.code}: {body[:200]}") from exc
-    raise RuntimeError("Gemini 3 denemede de yanıt vermedi (kota aşımı).")
+    raise RuntimeError("Gemini yanıt vermedi.")
 
 
 _PROVIDERS = [
-    ("ANTHROPIC_API_KEY", "Claude (Anthropic)", _summarize_anthropic),
-    ("GROQ_API_KEY",      "Llama 3.3 (Groq)",   _summarize_groq),
-    ("GEMINI_API_KEY",    "Gemini Flash (Google)", _summarize_gemini),
+    ("GROQ_API_KEY",      "Llama 3.3 (Groq — ücretsiz)", _summarize_groq),
+    ("ANTHROPIC_API_KEY", "Claude (Anthropic)",           _summarize_anthropic),
+    ("GEMINI_API_KEY",    "Gemini Flash (Google)",        _summarize_gemini),
 ]
 
 
