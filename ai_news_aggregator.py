@@ -468,10 +468,12 @@ def _summarize_openrouter(prompt: str) -> str:
     api_key = os.environ["OPENROUTER_API_KEY"]
     free_models = [
         "meta-llama/llama-3.3-70b-instruct:free",
-        "google/gemma-3-27b-it:free",
-        "mistralai/mistral-small-3.1-24b-instruct:free",
-        "microsoft/phi-4-reasoning:free",
-        "deepseek/deepseek-r1-0528:free",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+        "google/gemma-2-9b-it:free",
+        "qwen/qwen-2.5-7b-instruct:free",
+        "nousresearch/hermes-3-llama-3.1-8b:free",
+        "liquid/lfm-40b:free",
     ]
     last_error = ""
     for model in free_models:
@@ -502,7 +504,22 @@ def _summarize_openrouter(prompt: str) -> str:
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")
             last_error = f"OpenRouter/{model} HTTP {exc.code}: {body[:200]}"
-            log.warning("OpenRouter %s başarısız: HTTP %d", model, exc.code)
+            if exc.code == 429:
+                log.warning("OpenRouter %s rate limit, 15s bekleniyor...", model)
+                time.sleep(15)
+                # Aynı modeli bir kez daha dene
+                try:
+                    with urllib.request.urlopen(req, timeout=90) as resp2:
+                        data = json.loads(resp2.read())
+                    if data.get("choices"):
+                        log.info("OpenRouter modeli kullanıldı (retry): %s", model)
+                        return data["choices"][0]["message"]["content"]
+                except Exception:
+                    pass
+            elif exc.code == 404:
+                log.debug("OpenRouter %s mevcut değil, sonraki deneniyor.", model)
+            else:
+                log.warning("OpenRouter %s başarısız: HTTP %d", model, exc.code)
     raise RuntimeError(last_error)
 
 
