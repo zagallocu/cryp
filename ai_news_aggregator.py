@@ -402,28 +402,40 @@ def _summarize_anthropic(prompt: str) -> str:
 def _summarize_groq(prompt: str) -> str:
     """Groq ücretsiz API — console.groq.com üzerinden key alınabilir."""
     api_key = os.environ["GROQ_API_KEY"]
-    payload = json.dumps({
-        "model": "llama-3.3-70b-versatile",
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 4096,
-        "temperature": 0.3,
-    }).encode()
-    req = urllib.request.Request(
-        "https://api.groq.com/openai/v1/chat/completions",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.loads(resp.read())
-        return data["choices"][0]["message"]["content"]
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode(errors="replace")
-        raise RuntimeError(f"Groq HTTP {exc.code}: {body[:300]}") from exc
+    groq_models = [
+        "llama-3.3-70b-versatile",
+        "llama3-70b-8192",
+        "llama-3.1-70b-versatile",
+        "mixtral-8x7b-32768",
+        "llama-3.1-8b-instant",
+    ]
+    last_error = ""
+    for model in groq_models:
+        payload = json.dumps({
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4096,
+            "temperature": 0.3,
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read())
+            log.info("Groq modeli kullanıldı: %s", model)
+            return data["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode(errors="replace")
+            last_error = f"Groq/{model} HTTP {exc.code}: {body[:200]}"
+            log.warning("Groq %s başarısız: HTTP %d — sıradaki model...", model, exc.code)
+    raise RuntimeError(last_error)
 
 
 def _summarize_gemini(prompt: str) -> str:
