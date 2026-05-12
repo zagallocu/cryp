@@ -199,58 +199,65 @@ def _parse_rss(xml_text: str, source_name: str, source_priority: int, cutoff: da
     return articles
 
 
-def fetch_newsapi(hours: int = 24) -> list[NewsArticle]:
-    """NewsAPI.org üzerinden haber çeker (NEWSAPI_KEY gerekir, ücretsiz plan mevcut)."""
-    api_key = os.getenv("NEWSAPI_KEY", "")
+def fetch_gnews(hours: int = 24) -> list[NewsArticle]:
+    """GNews API üzerinden haber çeker (GNEWS_KEY gerekir, gnews.io ücretsiz plan: 100 istek/gün)."""
+    api_key = os.getenv("GNEWS_KEY", "")
     if not api_key:
         return []
 
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-    from_str = cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
-    params = urllib.parse.urlencode({
-        "q": "artificial intelligence OR OpenAI OR LLM OR ChatGPT OR Gemini OR Claude AI",
-        "language": "en",
-        "sortBy": "publishedAt",
-        "from": from_str,
-        "pageSize": 50,
-        "apiKey": api_key,
-    })
-    url = f"https://newsapi.org/v2/everything?{params}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AINewsAggregator/1.0"})
-
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            data = json.loads(resp.read())
-    except Exception as exc:
-        log.warning("NewsAPI hatası: %s", exc)
-        return []
-
+    queries = [
+        "artificial intelligence",
+        "OpenAI OR Anthropic OR DeepMind",
+        "LLM OR ChatGPT OR Gemini OR Claude",
+    ]
     articles: list[NewsArticle] = []
-    for item in data.get("articles", []):
-        title = (item.get("title") or "").strip()
-        url_ = (item.get("url") or "").strip()
-        summary = (item.get("description") or item.get("content") or "").strip()
-        pub_str = item.get("publishedAt", "")
-        pub = _parse_date(pub_str)
-        source_name = item.get("source", {}).get("name", "NewsAPI")
 
-        if not title or not url_ or "[Removed]" in title:
+    for q in queries:
+        params = urllib.parse.urlencode({
+            "q": q,
+            "lang": "en",
+            "sortby": "publishedAt",
+            "max": 10,
+            "token": api_key,
+        })
+        url = f"https://gnews.io/api/v4/search?{params}"
+        req = urllib.request.Request(url, headers={"User-Agent": "AINewsAggregator/1.0"})
+
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                data = json.loads(resp.read())
+        except Exception as exc:
+            log.warning("GNews API hatası (%s): %s", q, exc)
             continue
-        if not is_ai_related(title, summary):
-            continue
 
-        art = NewsArticle(
-            title=title,
-            url=url_,
-            source=f"NewsAPI/{source_name}",
-            published=pub or datetime.now(timezone.utc),
-            summary=summary[:1000],
-            source_priority=7,
-        )
-        art.relevance_score = compute_relevance(art)
-        articles.append(art)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        for item in data.get("articles", []):
+            title = (item.get("title") or "").strip()
+            url_ = (item.get("url") or "").strip()
+            summary = (item.get("description") or item.get("content") or "").strip()
+            pub_str = item.get("publishedAt", "")
+            pub = _parse_date(pub_str)
+            source_name = item.get("source", {}).get("name", "GNews")
 
-    log.info("NewsAPI: %d AI haberi bulundu", len(articles))
+            if not title or not url_:
+                continue
+            if pub is not None and pub < cutoff:
+                continue
+            if not is_ai_related(title, summary):
+                continue
+
+            art = NewsArticle(
+                title=title,
+                url=url_,
+                source=f"GNews/{source_name}",
+                published=pub or datetime.now(timezone.utc),
+                summary=summary[:1000],
+                source_priority=7,
+            )
+            art.relevance_score = compute_relevance(art)
+            articles.append(art)
+
+    log.info("GNews: %d AI haberi bulundu", len(articles))
     return articles
 
 
@@ -266,8 +273,8 @@ def fetch_articles(hours: int = 24) -> list[NewsArticle]:
             log.info("  → %d AI haberi bulundu", len(found))
             articles.extend(found)
 
-    # NewsAPI ek kaynak olarak
-    articles.extend(fetch_newsapi(hours=hours))
+    # GNews ek kaynak olarak
+    articles.extend(fetch_gnews(hours=hours))
 
     # Tekrar eden URL'leri temizle
     seen: set[str] = set()
