@@ -450,7 +450,25 @@ _PROVIDERS = [
 
 def summarize_articles(articles: list[NewsArticle], max_articles: int = 10) -> list[NewsArticle]:
     top = articles[:max_articles]
+
+    # ArXiv abstract'ları çok uzun — kırp
+    for a in top:
+        if "ArXiv" in a.source:
+            # Abstract'ı 300 karakterde kes, "Announce Type" gürültüsünü temizle
+            clean = re.sub(r"arXiv:\S+\s*Announce Type:\s*\S+\s*Abstract:\s*", "", a.summary)
+            a.summary = clean[:300].strip()
+
     prompt = _build_prompt(_articles_to_text(top), len(top))
+    log.debug("Prompt uzunluğu: %d karakter", len(prompt))
+
+    # Hangi key'lerin yüklü olduğunu göster
+    loaded = [name for env_var, name, _ in _PROVIDERS if os.getenv(env_var)]
+    if not loaded:
+        log.error("❌ Hiç LLM API key bulunamadı!")
+        log.error("   .env yolu: %s", Path(__file__).parent / ".env")
+        log.error("   GEMINI_API_KEY=%s", os.getenv("GEMINI_API_KEY", "—")[:12] + "...")
+        return top
+    log.info("Aktif provider(lar): %s", ", ".join(loaded))
 
     for env_var, provider_name, fn in _PROVIDERS:
         if not os.getenv(env_var):
@@ -458,18 +476,53 @@ def summarize_articles(articles: list[NewsArticle], max_articles: int = 10) -> l
         log.info("%s ile %d haber özetleniyor...", provider_name, len(top))
         try:
             response_text = fn(prompt)
+            log.debug("Ham yanıt (ilk 300 karakter):\n%s", response_text[:300])
             _parse_claude_response(response_text, top)
             translated = sum(1 for a in top if a.turkish_title)
-            log.info("%s: özetleme tamamlandı — %d/%d haber çevrildi.", provider_name, translated, len(top))
+            if translated == 0:
+                log.warning("Parse başarısız — yanıt beklenen formatta değil.")
+                log.warning("Ham yanıt:\n%s", response_text[:600])
+                # Yedek: daha esnek parse dene
+                _parse_flexible(response_text, top)
+                translated = sum(1 for a in top if a.turkish_title)
+            log.info("%s tamamlandı — %d/%d haber çevrildi.", provider_name, translated, len(top))
             return top
         except Exception as exc:
             log.error("❌ %s hatası: %s", provider_name, exc)
-            log.warning("   → Sıradaki provider deneniyor...")
 
-    log.error("❌ Hiçbir provider çalışmadı. Haberler İngilizce yayımlanıyor.")
-    log.error("   .env dosyasında GEMINI_API_KEY, GROQ_API_KEY veya ANTHROPIC_API_KEY tanımlı mı?")
-    log.error("   .env dosya yolu: %s", Path(__file__).parent / ".env")
+    log.error("❌ Hiçbir provider çalışmadı.")
     return top
+
+
+def _parse_flexible(text: str, articles: list[NewsArticle]) -> None:
+    """Gemini farklı format döndürdüğünde devreye giren yedek parser."""
+    # Satır satır tara, BAŞLIK: ve ÖZET: içeren satırları bul
+    title_pat  = re.compile(r"(?:TÜRKÇE_?BAŞLIK|Turkish Title|Başlık)\s*[:：]\s*(.+)", re.IGNORECASE)
+    summary_pat = re.compile(r"(?:TÜRKÇE_?ÖZET|Turkish Summary|Özet)\s*[:：]\s*([\s\S]+?)(?=(?:TÜRKÇE|Turkish|Başlık|Özet|===|\d+\.|$))", re.IGNORECASE)
+    number_pat  = re.compile(r"(?:===HABER_?(\d+)===|^\*?\*?(\d+)\.\s)", re.MULTILINE)
+
+    # Numaralı bloklara böl
+    splits = list(number_pat.finditer(text))
+    if not splits:
+        # Numara yoksa tüm metni tek blok say
+        blocks = [text]
+        offsets = [0]
+    else:
+        offsets = [m.start() for m in splits]
+        offsets.append(len(text))
+        blocks = [text[offsets[i]:offsets[i+1]] for i in range(len(splits))]
+
+    for i, block in enumerate(blocks):
+        if i >= len(articles):
+            break
+        if articles[i].turkish_title:
+            continue  # Zaten çevrilmiş
+        tm = title_pat.search(block)
+        sm = summary_pat.search(block)
+        if tm:
+            articles[i].turkish_title = tm.group(1).strip()
+        if sm:
+            articles[i].turkish_summary = sm.group(1).strip()
 
 
 def _parse_claude_response(text: str, articles: list[NewsArticle]) -> None:
@@ -606,6 +659,8 @@ def run_demo() -> None:
 
 
 if __name__ == "__main__":
+    if "--verbose" in sys.argv:
+        logging.getLogger().setLevel(logging.DEBUG)
     if "--demo" in sys.argv:
         run_demo()
     else:
