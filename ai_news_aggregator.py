@@ -8,6 +8,7 @@ import os
 import sys
 import logging
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 from dataclasses import dataclass, field
 from typing import Optional
@@ -24,7 +25,7 @@ import urllib.parse
 import anthropic
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).parent / ".env")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -418,14 +419,26 @@ def _summarize_gemini(prompt: str) -> str:
         "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.3},
     }).encode()
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-    req = urllib.request.Request(
-        url, data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        data = json.loads(resp.read())
-    return data["candidates"][0]["content"]["parts"][0]["text"]
+
+    for attempt in range(3):
+        req = urllib.request.Request(
+            url, data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read())
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode(errors="replace")
+            if exc.code == 429:
+                wait = 15 * (attempt + 1)
+                log.warning("Gemini kota aşıldı, %ds bekleniyor (deneme %d/3)...", wait, attempt + 1)
+                time.sleep(wait)
+            else:
+                raise RuntimeError(f"Gemini HTTP {exc.code}: {body[:200]}") from exc
+    raise RuntimeError("Gemini 3 denemede de yanıt vermedi (kota aşımı).")
 
 
 _PROVIDERS = [
@@ -446,12 +459,16 @@ def summarize_articles(articles: list[NewsArticle], max_articles: int = 10) -> l
         try:
             response_text = fn(prompt)
             _parse_claude_response(response_text, top)
-            log.info("%s: özetleme tamamlandı.", provider_name)
+            translated = sum(1 for a in top if a.turkish_title)
+            log.info("%s: özetleme tamamlandı — %d/%d haber çevrildi.", provider_name, translated, len(top))
             return top
         except Exception as exc:
-            log.warning("%s hatası: %s — sıradaki provider deneniyor.", provider_name, exc)
+            log.error("❌ %s hatası: %s", provider_name, exc)
+            log.warning("   → Sıradaki provider deneniyor...")
 
-    log.warning("Hiç API key bulunamadı. Haberler Türkçe özetlenmeden yayımlanıyor.")
+    log.error("❌ Hiçbir provider çalışmadı. Haberler İngilizce yayımlanıyor.")
+    log.error("   .env dosyasında GEMINI_API_KEY, GROQ_API_KEY veya ANTHROPIC_API_KEY tanımlı mı?")
+    log.error("   .env dosya yolu: %s", Path(__file__).parent / ".env")
     return top
 
 
