@@ -446,7 +446,7 @@ def _summarize_gemini(prompt: str) -> str:
         "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.3},
     }).encode()
 
-    for model in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
+    for model in ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash-preview-05-20", "gemini-1.5-flash-latest", "gemini-1.5-pro-latest"]:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
         try:
@@ -460,13 +460,57 @@ def _summarize_gemini(prompt: str) -> str:
                 log.warning("Gemini %s kota aşıldı, sıradaki model deneniyor...", model)
             else:
                 raise RuntimeError(f"Gemini HTTP {exc.code}: {body[:200]}") from exc
-    raise RuntimeError("Tüm Gemini modelleri kota aşımında. Groq API'yi deneyin: console.groq.com")
+    raise RuntimeError("Tüm Gemini modelleri kota aşımında. OpenRouter veya Groq deneyin.")
+
+
+def _summarize_openrouter(prompt: str) -> str:
+    """OpenRouter — ücretsiz modeller, Cloudflare yok. openrouter.ai üzerinden key alınabilir."""
+    api_key = os.environ["OPENROUTER_API_KEY"]
+    free_models = [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "google/gemma-3-27b-it:free",
+        "mistralai/mistral-small-3.1-24b-instruct:free",
+        "microsoft/phi-4-reasoning:free",
+        "deepseek/deepseek-r1-0528:free",
+    ]
+    last_error = ""
+    for model in free_models:
+        payload = json.dumps({
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4096,
+            "temperature": 0.3,
+        }).encode()
+        req = urllib.request.Request(
+            "https://openrouter.ai/api/v1/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/zagallocu/cryp",
+                "X-Title": "AI News Aggregator",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                data = json.loads(resp.read())
+            if data.get("choices"):
+                log.info("OpenRouter modeli kullanıldı: %s", model)
+                return data["choices"][0]["message"]["content"]
+            last_error = f"OpenRouter boş yanıt: {data}"
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode(errors="replace")
+            last_error = f"OpenRouter/{model} HTTP {exc.code}: {body[:200]}"
+            log.warning("OpenRouter %s başarısız: HTTP %d", model, exc.code)
+    raise RuntimeError(last_error)
 
 
 _PROVIDERS = [
-    ("GROQ_API_KEY",      "Llama 3.3 (Groq — ücretsiz)", _summarize_groq),
-    ("ANTHROPIC_API_KEY", "Claude (Anthropic)",           _summarize_anthropic),
-    ("GEMINI_API_KEY",    "Gemini Flash (Google)",        _summarize_gemini),
+    ("OPENROUTER_API_KEY", "OpenRouter (ücretsiz)",        _summarize_openrouter),
+    ("GROQ_API_KEY",       "Llama 3.3 (Groq — ücretsiz)", _summarize_groq),
+    ("ANTHROPIC_API_KEY",  "Claude (Anthropic)",           _summarize_anthropic),
+    ("GEMINI_API_KEY",     "Gemini Flash (Google)",        _summarize_gemini),
 ]
 
 
