@@ -456,8 +456,8 @@ def _summarize_gemini(prompt: str) -> str:
             return data["candidates"][0]["content"]["parts"][0]["text"]
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")
-            if exc.code == 429:
-                log.warning("Gemini %s kota aşıldı, sıradaki model deneniyor...", model)
+            if exc.code in (429, 404):
+                log.warning("Gemini %s başarısız (HTTP %d), sıradaki model deneniyor...", model, exc.code)
             else:
                 raise RuntimeError(f"Gemini HTTP {exc.code}: {body[:200]}") from exc
     raise RuntimeError("Tüm Gemini modelleri kota aşımında. OpenRouter veya Groq deneyin.")
