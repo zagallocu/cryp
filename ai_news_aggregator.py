@@ -35,38 +35,83 @@ log = logging.getLogger(__name__)
 
 TURKEY_TZ = ZoneInfo("Europe/Istanbul")
 
-# RSS kaynakları ve öncelik skorları
+# ── RSS Kaynakları ─────────────────────────────────────────────────────────────
+# Öncelik: 10=en yüksek (resmi lab blogları), 6=genel tech haberleri
 RSS_SOURCES = [
-    {"name": "TechCrunch AI",          "url": "https://techcrunch.com/category/artificial-intelligence/feed/",          "priority": 10},
-    {"name": "The Verge AI",            "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",      "priority": 10},
-    {"name": "VentureBeat AI",          "url": "https://venturebeat.com/category/ai/feed/",                              "priority": 9},
-    {"name": "MIT Technology Review",   "url": "https://www.technologyreview.com/feed/",                                 "priority": 9},
-    {"name": "Wired AI",                "url": "https://www.wired.com/feed/tag/ai/latest/rss",                          "priority": 8},
-    {"name": "Reuters Technology",      "url": "https://feeds.reuters.com/reuters/technologyNews",                       "priority": 8},
-    {"name": "Bloomberg Technology",    "url": "https://feeds.bloomberg.com/technology/news.rss",                        "priority": 8},
-    {"name": "Hacker News",             "url": "https://news.ycombinator.com/rss",                                       "priority": 6},
-    {"name": "ArXiv CS.AI",             "url": "https://rss.arxiv.org/rss/cs.AI",                                       "priority": 7},
-    {"name": "Google News AI",          "url": "https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en", "priority": 7},
+    # Resmi AI Lab Blogları (öncelik 10)
+    {"name": "OpenAI Blog",         "url": "https://openai.com/news/rss.xml",                                                        "priority": 10},
+    {"name": "Anthropic Blog",      "url": "https://www.anthropic.com/rss.xml",                                                      "priority": 10},
+    {"name": "Google DeepMind",     "url": "https://deepmind.google/blog/rss",                                                       "priority": 10},
+    {"name": "Google AI Blog",      "url": "https://blog.google/technology/ai/rss/",                                                  "priority": 10},
+    {"name": "Meta AI Blog",        "url": "https://ai.meta.com/blog/rss/",                                                          "priority": 10},
+    {"name": "Hugging Face Blog",   "url": "https://huggingface.co/blog/feed.xml",                                                   "priority": 10},
+    {"name": "Mistral AI Blog",     "url": "https://mistral.ai/news/rss",                                                            "priority": 9},
+    {"name": "xAI Blog",            "url": "https://x.ai/blog/rss.xml",                                                              "priority": 9},
+    {"name": "Microsoft AI Blog",   "url": "https://blogs.microsoft.com/ai/feed/",                                                   "priority": 9},
+    {"name": "NVIDIA AI Blog",      "url": "https://blogs.nvidia.com/blog/category/deep-learning/feed/",                             "priority": 9},
+
+    # Araştırma & Teknik (öncelik 9-8)
+    {"name": "ArXiv CS.AI",         "url": "https://rss.arxiv.org/rss/cs.AI",                                                       "priority": 9},
+    {"name": "ArXiv CS.LG",         "url": "https://rss.arxiv.org/rss/cs.LG",                                                       "priority": 8},
+    {"name": "ArXiv CS.CL",         "url": "https://rss.arxiv.org/rss/cs.CL",                                                       "priority": 8},
+    {"name": "MarkTechPost",        "url": "https://www.marktechpost.com/feed/",                                                     "priority": 8},
+    {"name": "The Gradient",        "url": "https://thegradient.pub/rss/",                                                           "priority": 8},
+    {"name": "AI Alignment Forum",  "url": "https://www.alignmentforum.org/feed.xml",                                                "priority": 7},
+
+    # Haber & Analiz (öncelik 8-7)
+    {"name": "TechCrunch AI",       "url": "https://techcrunch.com/category/artificial-intelligence/feed/",                         "priority": 8},
+    {"name": "The Verge AI",        "url": "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml",                     "priority": 8},
+    {"name": "VentureBeat AI",      "url": "https://venturebeat.com/category/ai/feed/",                                             "priority": 8},
+    {"name": "MIT Tech Review AI",  "url": "https://www.technologyreview.com/feed/",                                                 "priority": 8},
+    {"name": "Wired AI",            "url": "https://www.wired.com/feed/tag/ai/latest/rss",                                          "priority": 7},
+    {"name": "Ars Technica AI",     "url": "https://feeds.arstechnica.com/arstechnica/index",                                        "priority": 7},
+
+    # Topluluk & Reddit (öncelik 6)
+    {"name": "Reddit r/MachineLearning", "url": "https://www.reddit.com/r/MachineLearning/.rss?sort=top&t=day",                    "priority": 6},
+    {"name": "Reddit r/LocalLLaMA",      "url": "https://www.reddit.com/r/LocalLLaMA/.rss?sort=top&t=day",                         "priority": 6},
+    {"name": "Hacker News AI",           "url": "https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+machine+learning&points=50",       "priority": 6},
+
+    # Google News özel sorgular (öncelik 7)
+    {"name": "GNews: Model Releases",   "url": "https://news.google.com/rss/search?q=AI+model+release+OR+LLM+launch+2026&hl=en-US&gl=US&ceid=US:en", "priority": 7},
+    {"name": "GNews: AI Research",      "url": "https://news.google.com/rss/search?q=AI+research+breakthrough+OpenAI+Anthropic+DeepMind&hl=en-US&gl=US&ceid=US:en", "priority": 7},
 ]
 
-# Öncelik artıran anahtar kelimeler
+# ── Öncelik artıran anahtar kelimeler ────────────────────────────────────────
 HIGH_PRIORITY_KEYWORDS = [
-    "gpt", "gemini", "claude", "llama", "mistral", "deepseek", "grok",
-    "openai", "anthropic", "google deepmind", "meta ai", "mistral ai",
-    "model release", "new model", "launch", "breakthrough", "benchmark",
-    "regulation", "ban", "law", "policy", "billion", "acquisition",
-    "agi", "superintelligence", "reasoning model", "multimodal",
-    "fine-tuning", "open source", "open-weight", "foundation model",
+    # Model ve lab isimleri
+    "gpt", "gemini", "claude", "llama", "mistral", "deepseek", "grok", "phi",
+    "qwen", "gemma", "command r", "falcon", "yi ", "solar", "wizard",
+    "openai", "anthropic", "deepmind", "meta ai", "mistral ai", "xai", "cohere",
+    "stability ai", "inflection", "adept", "character.ai", "perplexity",
+    # Teknik gelişmeler
+    "model release", "new model", "launched", "released", "unveiled", "introduced",
+    "benchmark", "state-of-the-art", "sota", "outperforms", "surpasses",
+    "reasoning", "multimodal", "vision language", "text-to-", "diffusion",
+    "fine-tuning", "rlhf", "dpo", "rag", "agent", "agentic", "tool use",
+    "context window", "inference", "quantization", "open-weight", "open source",
+    "foundation model", "pre-training", "post-training", "alignment",
+    # Önemli olaylar
+    "agi", "superintelligence", "breakthrough", "billion parameters",
+    "acquisition", "funding", "valuation", "regulation", "executive order",
+    "safety", "alignment", "hallucination", "jailbreak", "copyright",
 ]
 
+# ── AI ilgililik filtreleme ───────────────────────────────────────────────────
 AI_KEYWORDS = [
     "artificial intelligence", "machine learning", "deep learning", "neural network",
-    "large language model", "llm", "generative ai", "ai model", "ai system",
-    "chatgpt", "gpt", "gemini", "claude", "llama", "openai", "anthropic",
-    "deepmind", "hugging face", "transformer", "diffusion model", "computer vision",
-    "natural language", "reinforcement learning", "fine-tuning", "inference",
-    "ai chip", "ai regulation", "ai safety", "alignment", "agi",
-    "copilot", "ai assistant", "ai agent", "agentic", "autonomous",
+    "large language model", "llm", "generative ai", "foundation model",
+    "chatgpt", "gpt-", "gpt4", "gpt5", "gemini", "claude", "llama", "mistral",
+    "deepseek", "grok", "phi-", "qwen", "gemma", "falcon",
+    "openai", "anthropic", "deepmind", "hugging face", "huggingface",
+    "transformer", "diffusion model", "stable diffusion", "midjourney", "dall-e",
+    "computer vision", "natural language processing", "nlp",
+    "reinforcement learning", "rlhf", "fine-tuning", "fine tuning",
+    "ai model", "ai system", "ai agent", "ai safety", "ai alignment",
+    "ai regulation", "ai chip", "gpu", "tpu", "nvidia", "ai research",
+    "benchmark", "reasoning model", "multimodal", "text-to-image", "text-to-video",
+    "copilot", "ai assistant", "chatbot", "agi", "superintelligence",
+    "inference", "context window", "tokenizer", "embedding", "vector",
+    "prompt", "prompt engineering", "retrieval augmented", "rag",
 ]
 
 
@@ -83,7 +128,12 @@ class NewsArticle:
     turkish_summary: str = ""
 
 
-def is_ai_related(title: str, summary: str) -> bool:
+ARXIV_SOURCES = {"ArXiv CS.AI", "ArXiv CS.LG", "ArXiv CS.CL"}
+
+def is_ai_related(title: str, summary: str, source: str = "") -> bool:
+    # ArXiv makaleleri zaten AI konuludur, hepsini dahil et
+    if source in ARXIV_SOURCES:
+        return True
     text = (title + " " + summary).lower()
     return any(kw in text for kw in AI_KEYWORDS)
 
@@ -182,7 +232,7 @@ def _parse_rss(xml_text: str, source_name: str, source_priority: int, cutoff: da
             continue
         if pub is not None and pub < cutoff:
             continue
-        if not is_ai_related(title, summary):
+        if not is_ai_related(title, summary, source_name):
             continue
 
         art = NewsArticle(
@@ -207,8 +257,11 @@ def fetch_gnews(hours: int = 24) -> list[NewsArticle]:
 
     queries = [
         "artificial intelligence",
-        "OpenAI OR Anthropic OR DeepMind",
-        "LLM OR ChatGPT OR Gemini OR Claude",
+        "OpenAI OR Anthropic OR DeepMind OR \"Meta AI\"",
+        "LLM OR \"large language model\" OR \"AI model\" release",
+        "ChatGPT OR Gemini OR Claude OR Llama OR Mistral OR DeepSeek",
+        "AI safety OR AI alignment OR AGI OR superintelligence",
+        "AI regulation OR \"executive order\" AI OR AI law 2026",
     ]
     articles: list[NewsArticle] = []
 
