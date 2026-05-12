@@ -523,7 +523,39 @@ def _summarize_openrouter(prompt: str) -> str:
     raise RuntimeError(last_error)
 
 
+def _summarize_cerebras(prompt: str) -> str:
+    """Cerebras — ücretsiz, çok hızlı. inference.cerebras.ai üzerinden key alınabilir."""
+    api_key = os.environ["CEREBRAS_API_KEY"]
+    for model in ["llama-3.3-70b", "llama3.1-70b", "llama-4-scout-17b-16e-instruct", "llama3.1-8b"]:
+        payload = json.dumps({
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4096,
+            "temperature": 0.3,
+        }).encode()
+        req = urllib.request.Request(
+            "https://api.cerebras.ai/v1/chat/completions",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                data = json.loads(resp.read())
+            if data.get("choices"):
+                log.info("Cerebras modeli kullanıldı: %s", model)
+                return data["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode(errors="replace")
+            log.warning("Cerebras %s başarısız: HTTP %d — %s", model, exc.code, body[:100])
+    raise RuntimeError("Tüm Cerebras modelleri başarısız.")
+
+
 _PROVIDERS = [
+    ("CEREBRAS_API_KEY",   "Cerebras (ücretsiz, hızlı)",  _summarize_cerebras),
     ("OPENROUTER_API_KEY", "OpenRouter (ücretsiz)",        _summarize_openrouter),
     ("GROQ_API_KEY",       "Llama 3.3 (Groq — ücretsiz)", _summarize_groq),
     ("ANTHROPIC_API_KEY",  "Claude (Anthropic)",           _summarize_anthropic),
