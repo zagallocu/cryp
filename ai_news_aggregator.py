@@ -289,25 +289,8 @@ def fetch_articles(hours: int = 24) -> list[NewsArticle]:
     return unique
 
 
-def summarize_with_claude(articles: list[NewsArticle], max_articles: int = 10) -> list[NewsArticle]:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY ortam değişkeni ayarlanmamış.")
-
-    client = anthropic.Anthropic(api_key=api_key)
-    top = articles[:max_articles]
-
-    articles_text = ""
-    for i, art in enumerate(top, 1):
-        articles_text += (
-            f"\n---HABER {i}---\n"
-            f"Başlık: {art.title}\n"
-            f"Kaynak: {art.source}\n"
-            f"URL: {art.url}\n"
-            f"Özet/İçerik: {art.summary}\n"
-        )
-
-    prompt = f"""Sen deneyimli bir teknoloji gazetecisisin. Aşağıdaki {len(top)} yapay zeka haberini Türkçe olarak özetle.
+def _build_prompt(articles_text: str, count: int) -> str:
+    return f"""Sen deneyimli bir teknoloji gazetecisisin. Aşağıdaki {count} yapay zeka haberini Türkçe olarak özetle.
 
 Her haber için şunları üret:
 1. TÜRKÇE_BAŞLIK: Haberin Türkçe başlığı (doğal ve akıcı olsun)
@@ -325,18 +308,97 @@ TÜRKÇE_ÖZET: ...
 ...
 
 Haberler:
-{articles_text}
-"""
+{articles_text}"""
 
-    log.info("Claude API'ye %d haber gönderiliyor...", len(top))
-    message = client.messages.create(
+
+def _articles_to_text(articles: list[NewsArticle]) -> str:
+    text = ""
+    for i, art in enumerate(articles, 1):
+        text += (
+            f"\n---HABER {i}---\n"
+            f"Başlık: {art.title}\n"
+            f"Kaynak: {art.source}\n"
+            f"URL: {art.url}\n"
+            f"Özet/İçerik: {art.summary}\n"
+        )
+    return text
+
+
+def _summarize_anthropic(prompt: str) -> str:
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    msg = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
     )
+    return msg.content[0].text
 
-    response_text = message.content[0].text
-    _parse_claude_response(response_text, top)
+
+def _summarize_groq(prompt: str) -> str:
+    """Groq ücretsiz API — console.groq.com üzerinden key alınabilir."""
+    api_key = os.environ["GROQ_API_KEY"]
+    payload = json.dumps({
+        "model": "llama-3.3-70b-versatile",
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 4096,
+        "temperature": 0.3,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read())
+    return data["choices"][0]["message"]["content"]
+
+
+def _summarize_gemini(prompt: str) -> str:
+    """Google Gemini ücretsiz API — aistudio.google.com üzerinden key alınabilir."""
+    api_key = os.environ["GEMINI_API_KEY"]
+    payload = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": 4096, "temperature": 0.3},
+    }).encode()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    req = urllib.request.Request(
+        url, data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read())
+    return data["candidates"][0]["content"]["parts"][0]["text"]
+
+
+_PROVIDERS = [
+    ("ANTHROPIC_API_KEY", "Claude (Anthropic)", _summarize_anthropic),
+    ("GROQ_API_KEY",      "Llama 3.3 (Groq)",   _summarize_groq),
+    ("GEMINI_API_KEY",    "Gemini Flash (Google)", _summarize_gemini),
+]
+
+
+def summarize_articles(articles: list[NewsArticle], max_articles: int = 10) -> list[NewsArticle]:
+    top = articles[:max_articles]
+    prompt = _build_prompt(_articles_to_text(top), len(top))
+
+    for env_var, provider_name, fn in _PROVIDERS:
+        if not os.getenv(env_var):
+            continue
+        log.info("%s ile %d haber özetleniyor...", provider_name, len(top))
+        try:
+            response_text = fn(prompt)
+            _parse_claude_response(response_text, top)
+            log.info("%s: özetleme tamamlandı.", provider_name)
+            return top
+        except Exception as exc:
+            log.warning("%s hatası: %s — sıradaki provider deneniyor.", provider_name, exc)
+
+    log.warning("Hiç API key bulunamadı. Haberler Türkçe özetlenmeden yayımlanıyor.")
     return top
 
 
@@ -422,7 +484,7 @@ def run() -> str:
         print(digest)
         return path
 
-    articles = summarize_with_claude(articles, max_articles=10)
+    articles = summarize_articles(articles, max_articles=10)
     digest = format_digest(articles)
     path = save_digest(digest)
     print(digest)
